@@ -258,8 +258,9 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
     return results
 
 def call_gemini_api(notes: List[str], battery: BatteryInput, api_key: str) -> Optional[List[Dict[str, Any]]]:
-    """Invokes Gemini Flash model via Google REST API with structured JSON output."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    """Invokes Gemini model via Google REST API with structured JSON output."""
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     
     prompt_content = f"""Battery Specs:
 - Capacity: {battery.capacity_kwh} kWh
@@ -285,7 +286,7 @@ Extract the structured directives for each note following the instructions."""
         }
     }
     try:
-        resp = requests.post(url, json=payload, timeout=6.0)
+        resp = requests.post(url, json=payload, timeout=2.5)
         if resp.status_code == 200:
             data = resp.json()
             cand_text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -295,7 +296,7 @@ Extract the structured directives for each note following the instructions."""
             elif isinstance(parsed, dict) and "directives" in parsed:
                 return parsed["directives"]
     except Exception as e:
-        logger.warning(f"Gemini API invocation failed: {e}")
+        logger.warning(f"Gemini API invocation skipped/failed: {e}")
     return None
 
 def call_openai_api(notes: List[str], battery: BatteryInput, api_key: str) -> Optional[List[Dict[str, Any]]]:
