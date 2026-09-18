@@ -213,7 +213,7 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             continue
 
         # 4. Check minimum_battery_reserve
-        if any(w in lower for w in ["reserve", "stored in the battery", "remain in the battery", "keep at least"]):
+        if any(w in lower for w in ["reserve", "stored in the battery", "remain in the battery", "keep at least", "buffer", "maintains at least", "maintain at least", "hold at least", "minimum storage"]):
             min_energy = battery.minimum_energy_kwh
             m_pct = re.search(r'(\d+(?:\.\d+)?)\s*%', lower)
             m_kwh = re.search(r'(\d+(?:\.\d+)?)\s*kwh', lower)
