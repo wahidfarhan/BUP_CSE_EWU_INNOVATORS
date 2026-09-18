@@ -27,12 +27,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
+from fastapi.encoders import jsonable_encoder
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handles malformed requests and returns HTTP 400."""
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": "Malformed JSON or structurally invalid request.", "errors": exc.errors()}
+        content={
+            "detail": "Malformed JSON or structurally invalid request.",
+            "errors": jsonable_encoder(exc.errors())
+        }
     )
 
 @app.exception_handler(Exception)
