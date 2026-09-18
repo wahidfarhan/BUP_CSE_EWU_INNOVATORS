@@ -183,10 +183,10 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             continue
 
         # 2. Check no_discharge_window
-        if any(w in lower for w in [
-            "not discharge", "no discharge", "disable discharge", "avoid discharging",
-            "discharging is disabled", "discharge is disabled", "discharging must remain disabled",
-            "discharging disabled", "discharge disabled", "do not discharge", "discharging prohibited"
+        if ("discharge" in lower or "discharging" in lower) and any(w in lower for w in [
+            "not", "no", "disable", "avoid", "stop", "prohibit", "prevent", "protect",
+            "maintenance", "isolated", "offline", "inspect", "check", "testing", "test", "outage",
+            "unavailable", "circuit", "down"
         ]):
             results.append({
                 "note_index": idx,
@@ -198,11 +198,10 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             continue
 
         # 3. Check no_charge_window
-        if any(w in lower for w in [
-            "not charge", "no charging", "charging circuit", "charger will be isolated",
-            "battery charging is disabled", "charging is disabled", "charging must remain disabled",
-            "charging disabled", "charge disabled", "disable charging", "avoid charging",
-            "charging should be disabled", "do not charge", "charging prohibited"
+        if not ("discharge" in lower or "discharging" in lower) and any(w in lower for w in ["charge", "charging", "charger"]) and any(w in lower for w in [
+            "not", "no", "disable", "avoid", "stop", "prohibit", "prevent", "protect",
+            "maintenance", "isolated", "offline", "inspect", "check", "repair", "service", "technician", "outage",
+            "unavailable", "circuit", "down"
         ]):
             results.append({
                 "note_index": idx,
