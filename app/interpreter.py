@@ -259,7 +259,7 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
 
 def call_gemini_api(notes: List[str], battery: BatteryInput, api_key: str) -> Optional[List[Dict[str, Any]]]:
     """Invokes Gemini model via Google REST API with structured JSON output."""
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     
     prompt_content = f"""Battery Specs:
@@ -286,7 +286,7 @@ Extract the structured directives for each note following the instructions."""
         }
     }
     try:
-        resp = requests.post(url, json=payload, timeout=2.5)
+        resp = requests.post(url, json=payload, timeout=4.0)
         if resp.status_code == 200:
             data = resp.json()
             cand_text = data["candidates"][0]["content"]["parts"][0]["text"]
