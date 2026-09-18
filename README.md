@@ -5,6 +5,25 @@ GridWise is an enterprise-grade, high-performance energy scheduling HTTP API ser
 
 ---
 
+## 🌐 Live Deployment & Interactive Endpoints
+
+The service is deployed live on Render with automatic health monitoring and interactive OpenAPI/Swagger documentation:
+
+| Resource | URL | Method | Description |
+|---|---|---|---|
+| **Live API Service** | [https://bup-gridwise.onrender.com](https://bup-gridwise.onrender.com) | `GET /` | Root service status and metadata |
+| **Health Check** | [https://bup-gridwise.onrender.com/health](https://bup-gridwise.onrender.com/health) | `GET /health` | Production health check (`{"status": "ok"}`) |
+| **Interactive API Docs** | [https://bup-gridwise.onrender.com/docs](https://bup-gridwise.onrender.com/docs) | `GET /docs` | Swagger UI documentation with test console |
+| **Optimization Endpoint** | `https://bup-gridwise.onrender.com/optimize-energy` | `POST /optimize-energy` | Main LLM interpretation & LP optimizer endpoint |
+
+```bash
+# Instant Live Health Check
+curl https://bup-gridwise.onrender.com/health
+# Response: {"status":"ok"}
+```
+
+---
+
 ## 1. Architecture Overview
 
 ```
@@ -135,9 +154,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ## 4. API Testing with cURL
 
 ### 1. Health Check (`GET /health`)
-```bash
-curl -X GET http://localhost:8000/health
-```
+- **Live Deployment:**
+  ```bash
+  curl https://bup-gridwise.onrender.com/health
+  ```
+- **Local:**
+  ```bash
+  curl http://localhost:8000/health
+  ```
 **Response:**
 ```json
 {
@@ -146,8 +170,15 @@ curl -X GET http://localhost:8000/health
 ```
 
 ### 2. Energy Optimization (`POST /optimize-energy`)
+- **Live Deployment:**
+  ```bash
+  curl -X POST https://bup-gridwise.onrender.com/optimize-energy \
+    -H "Content-Type: application/json" \
+    -d '{ ... }'
+  ```
+- **Full cURL Example (Local or Live):**
 ```bash
-curl -X POST http://localhost:8000/optimize-energy \
+curl -X POST https://bup-gridwise.onrender.com/optimize-energy \
   -H "Content-Type: application/json" \
   -d '{
     "scenario_id": "TEST-01",
