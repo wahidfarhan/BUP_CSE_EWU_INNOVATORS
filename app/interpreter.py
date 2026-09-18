@@ -77,15 +77,15 @@ def parse_time_window(text: str) -> List[int]:
                 h = 0
         return h
 
-    # Check 24-hour formats e.g. "between 13:00 and 15:00" or "from 13:00 to 15:00"
-    m_24 = re.search(r'(?:from|between)\s+(\d{1,2}):00\s+(?:to|until|and)\s+(\d{1,2}):00', text_lower)
+    # Check 24-hour formats e.g. "between 13:00 and 15:00", "from 14:00 through 16:00"
+    m_24 = re.search(r'(?:from|between)\s+(\d{1,2}):00\s+(?:to|until|and|through|till|-|–)\s+(\d{1,2}):00', text_lower)
     if m_24:
         start_h = int(m_24.group(1))
         end_h = int(m_24.group(2))
         return list(range(start_h, end_h))
 
-    # Check "1-3 PM" or "1 to 3 PM"
-    m_hyphen = re.search(r'(\d{1,2})\s*(?:-|to)\s*(\d{1,2})\s*(am|pm)', text_lower)
+    # Check "1-3 PM", "6-9 PM", "1 to 3 PM", "6 through 9 PM"
+    m_hyphen = re.search(r'(\d{1,2})\s*(?:-|–|to|through|till)\s*(\d{1,2})\s*(am|pm)', text_lower)
     if m_hyphen:
         h1 = int(m_hyphen.group(1))
         h2 = int(m_hyphen.group(2))
@@ -98,9 +98,9 @@ def parse_time_window(text: str) -> List[int]:
             start_h = h1
         return list(range(start_h, end_h))
 
-    # Check "from X (am/pm/noon) (to/until/and) Y (am/pm/noon)"
+    # Check "from X (am/pm/noon) (to/until/and/through) Y (am/pm/noon)"
     # or "between X (am/pm/noon) and Y (am/pm/noon)"
-    pattern = r'(?:from|between)\s+(\d{1,2}|noon|midnight)\s*(am|pm)?\s*(?:to|until|and|-)\s*(\d{1,2}|noon|midnight)\s*(am|pm)?'
+    pattern = r'(?:from|between)\s+(\d{1,2}|noon|midnight)\s*(am|pm)?\s*(?:to|until|and|through|till|-|–)\s*(\d{1,2}|noon|midnight)\s*(am|pm)?'
     m = re.search(pattern, text_lower)
     if m:
         start_raw, start_mer, end_raw, end_mer = m.groups()
@@ -183,7 +183,11 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             continue
 
         # 2. Check no_discharge_window
-        if any(w in lower for w in ["not discharge", "no discharge", "disable discharge", "avoid discharging"]):
+        if any(w in lower for w in [
+            "not discharge", "no discharge", "disable discharge", "avoid discharging",
+            "discharging is disabled", "discharge is disabled", "discharging must remain disabled",
+            "discharging disabled", "discharge disabled", "do not discharge", "discharging prohibited"
+        ]):
             results.append({
                 "note_index": idx,
                 "applies": True,
@@ -194,7 +198,12 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             continue
 
         # 3. Check no_charge_window
-        if any(w in lower for w in ["not charge", "no charging", "charging circuit", "charger will be isolated", "battery charging is disabled", "avoid charging"]):
+        if any(w in lower for w in [
+            "not charge", "no charging", "charging circuit", "charger will be isolated",
+            "battery charging is disabled", "charging is disabled", "charging must remain disabled",
+            "charging disabled", "charge disabled", "disable charging", "avoid charging",
+            "charging should be disabled", "do not charge", "charging prohibited"
+        ]):
             results.append({
                 "note_index": idx,
                 "applies": True,
