@@ -89,7 +89,7 @@ def validate_and_guardrail_directives(
             continue
 
         hours = sanitize_hours(raw_adj.get("hours"))
-        if not hours:
+        if not hours and raw_type != "minimum_battery_reserve":
             # Empty hours window means directive cannot apply meaningfully -> fallback to no_op
             cleaned.append(DirectiveInterpretation(
                 note_index=idx,
@@ -100,7 +100,9 @@ def validate_and_guardrail_directives(
             ))
             continue
 
-        adj: Dict[str, Any] = {"hours": hours}
+        adj: Dict[str, Any] = {}
+        if hours and (raw_type != "minimum_battery_reserve" or len(hours) < 24):
+            adj["hours"] = hours
 
         if raw_type == "solar_reduction":
             try:

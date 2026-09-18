@@ -19,7 +19,8 @@ Allowed directive types:
    - factor is the usable solar fraction remaining (between 0.0 and 1.0).
    - e.g., "80% reduction" means factor = 0.2. "drop to 25%" or "roughly one-fourth" means factor = 0.25. "half" means factor = 0.5.
 2. "minimum_battery_reserve":
-   - Required structured_adjustment: {"hours": [int, ...], "minimum_energy_kwh": float}
+   - Structured adjustment: {"minimum_energy_kwh": float} if applying globally or throughout the day (NO "hours" field needed).
+   - If a specific time window is explicitly given (e.g., "between 6 PM and 9 PM"), then include {"hours": [int, ...], "minimum_energy_kwh": float}.
    - If specified as percentage of capacity (e.g. 50% of capacity), compute (percent/100) * capacity_kwh.
 3. "no_charge_window":
    - Required structured_adjustment: {"hours": [int, ...]}
@@ -223,15 +224,17 @@ def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> Li
             elif m_kwh:
                 min_energy = float(m_kwh.group(1))
 
+            adj_struct: Dict[str, Any] = {"minimum_energy_kwh": round(min_energy, 2)}
+            if hours and len(hours) < 24:
+                adj_struct["hours"] = hours
+
+            min_str = f"{int(min_energy)}" if min_energy.is_integer() else f"{min_energy}"
             results.append({
                 "note_index": idx,
                 "applies": True,
                 "directive_type": "minimum_battery_reserve",
-                "structured_adjustment": {
-                    "hours": hours,
-                    "minimum_energy_kwh": round(min_energy, 2)
-                },
-                "explanation": f"Maintain battery energy reserve at or above {min_energy} kWh."
+                "structured_adjustment": adj_struct,
+                "explanation": f"The battery must maintain at least {min_str} kWh of stored energy."
             })
             continue
 

@@ -42,10 +42,14 @@ def solve_energy_schedule(
 
         elif dir_type == "minimum_battery_reserve":
             req_reserve = float(adj.get("minimum_energy_kwh", battery.minimum_energy_kwh))
-            for h in hours:
+            target_hours = hours if (hours and len(hours) > 0) else list(range(N))
+            for h in target_hours:
                 if 0 <= h < N:
                     min_reserve[h] = max(min_reserve[h], req_reserve)
-            applied_descriptions.append(f"Battery reserve held at >={req_reserve} kWh during hours {hours}")
+            if hours and len(hours) < N:
+                applied_descriptions.append(f"Battery reserve held at >={req_reserve} kWh during hours {hours}")
+            else:
+                applied_descriptions.append(f"Battery reserve held at >={req_reserve} kWh throughout schedule")
 
         elif dir_type == "no_charge_window":
             for h in hours:
