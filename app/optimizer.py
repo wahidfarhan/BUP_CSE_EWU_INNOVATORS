@@ -3,6 +3,101 @@ from scipy.optimize import linprog
 from typing import List, Dict, Any, Tuple
 from app.models import HourInput, BatteryInput, DirectiveInterpretation, HourlyPlanEntry, BatteryAction
 
+def validate_schedule_invariants(
+    hourly_plan: List[HourlyPlanEntry],
+    hours_data: List[HourInput],
+    battery: BatteryInput,
+    effective_solar: np.ndarray,
+    min_reserve: np.ndarray,
+    directives: List[DirectiveInterpretation]
+) -> None:
+    """
+    Deterministic post-optimization schedule validator.
+    Strictly verifies:
+    1. Hourly energy balance: abs(grid + solar_used + discharge - demand - charge) <= 0.01
+    2. Effective solar limits: solar_used <= effective_solar + 0.01
+    3. Battery transitions & state bounds: min_reserve <= E <= capacity
+    4. End-of-day battery neutrality: abs(E[23] - initial) <= 0.01
+    5. Rate limits: charge <= max_charge + 0.01, discharge <= max_discharge + 0.01
+    6. Directives compliance: no_charge, no_discharge, max_grid, minimum_battery_reserve
+    """
+    TOL = 0.01
+
+    if abs(hourly_plan[23].battery_energy_after_kwh - battery.initial_energy_kwh) > TOL:
+        raise ValueError(
+            f"End-of-day neutrality violated: final battery energy {hourly_plan[23].battery_energy_after_kwh} "
+            f"!= initial energy {battery.initial_energy_kwh}"
+        )
+
+    prev_energy = battery.initial_energy_kwh
+    for h, p in enumerate(hourly_plan):
+        discharge = p.battery_kwh if p.battery_action == "discharge" else 0.0
+        charge = p.battery_kwh if p.battery_action == "charge" else 0.0
+
+        # Invariant 1: Hourly Energy Balance
+        supply = p.grid_kwh + p.solar_used_kwh + discharge
+        demand_load = hours_data[h].demand_kwh + charge
+        bal_err = abs(supply - demand_load)
+        if bal_err > TOL:
+            raise ValueError(
+                f"Hour {h} energy balance violation: supply={supply:.4f} (grid={p.grid_kwh}, "
+                f"solar={p.solar_used_kwh}, dis={discharge}) vs load={demand_load:.4f} "
+                f"(demand={hours_data[h].demand_kwh}, chg={charge}), diff={bal_err:.4f} > {TOL}"
+            )
+
+        # Invariant 2: Solar Curtailment
+        if p.solar_used_kwh > effective_solar[h] + TOL:
+            raise ValueError(
+                f"Hour {h} solar over-utilization: used={p.solar_used_kwh:.4f} > effective={effective_solar[h]:.4f}"
+            )
+
+        # Invariant 3: Battery Limits
+        if p.battery_energy_after_kwh < min_reserve[h] - TOL:
+            raise ValueError(
+                f"Hour {h} battery reserve breached: energy={p.battery_energy_after_kwh:.4f} < min_reserve={min_reserve[h]:.4f}"
+            )
+        if p.battery_energy_after_kwh > battery.capacity_kwh + TOL:
+            raise ValueError(
+                f"Hour {h} battery overfilled: energy={p.battery_energy_after_kwh:.4f} > capacity={battery.capacity_kwh:.4f}"
+            )
+
+        # Invariant 4: Battery Rate Limits
+        if charge > battery.max_charge_kwh_per_hour + TOL:
+            raise ValueError(
+                f"Hour {h} charge rate exceeded: {charge:.4f} > max_charge={battery.max_charge_kwh_per_hour}"
+            )
+        if discharge > battery.max_discharge_kwh_per_hour + TOL:
+            raise ValueError(
+                f"Hour {h} discharge rate exceeded: {discharge:.4f} > max_discharge={battery.max_discharge_kwh_per_hour}"
+            )
+
+        # Invariant 5: State Transition
+        expected_energy = prev_energy + charge - discharge
+        if abs(p.battery_energy_after_kwh - expected_energy) > TOL:
+            raise ValueError(
+                f"Hour {h} battery transition mismatch: energy={p.battery_energy_after_kwh:.4f} != expected={expected_energy:.4f}"
+            )
+        prev_energy = p.battery_energy_after_kwh
+
+    # Invariant 6: Directives Verification
+    for d in directives:
+        if not d.applies or not d.structured_adjustment:
+            continue
+        hours = d.structured_adjustment.get("hours", [])
+        if d.directive_type == "no_charge_window":
+            for h in hours:
+                if hourly_plan[h].battery_action == "charge" and hourly_plan[h].battery_kwh > TOL:
+                    raise ValueError(f"Hour {h} violates no_charge_window: charged {hourly_plan[h].battery_kwh} kWh")
+        elif d.directive_type == "no_discharge_window":
+            for h in hours:
+                if hourly_plan[h].battery_action == "discharge" and hourly_plan[h].battery_kwh > TOL:
+                    raise ValueError(f"Hour {h} violates no_discharge_window: discharged {hourly_plan[h].battery_kwh} kWh")
+        elif d.directive_type == "max_grid_window":
+            cap = float(d.structured_adjustment.get("max_grid_kwh", 1e9))
+            for h in hours:
+                if hourly_plan[h].grid_kwh > cap + TOL:
+                    raise ValueError(f"Hour {h} violates max_grid_window: grid={hourly_plan[h].grid_kwh} > cap={cap}")
+
 def solve_energy_schedule(
     hours_data: List[HourInput],
     battery: BatteryInput,
@@ -244,5 +339,15 @@ def solve_energy_schedule(
         summary_parts.append(f"Directives enforced: {'; '.join(applied_descriptions)}.")
 
     plan_summary = " ".join(summary_parts)
+
+    # Deterministic post-optimization validation
+    validate_schedule_invariants(
+        hourly_plan=hourly_plan,
+        hours_data=hours_data,
+        battery=battery,
+        effective_solar=effective_solar,
+        min_reserve=min_reserve,
+        directives=directives
+    )
 
     return hourly_plan, total_grid_kwh, total_cost_bdt, peak_grid_kwh, plan_summary
