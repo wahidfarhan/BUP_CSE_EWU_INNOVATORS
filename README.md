@@ -186,13 +186,15 @@ curl -X POST http://localhost:8000/optimize-energy \
 
 ## 5. Docker Fallback & Deployment
 
-### Build the Docker Image:
+### Option A: Pull & Run Pre-built Docker Image (GHCR):
 ```bash
-docker build -t gridwise-service:latest .
+docker pull ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest
+docker run -d --name gridwise -p 8000:8000 ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest
 ```
 
-### Run the Docker Container:
+### Option B: Build & Run Locally:
 ```bash
+docker build -t gridwise-service:latest .
 docker run -d --name gridwise -p 8000:8000 gridwise-service:latest
 ```
 
