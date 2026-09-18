@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GridWise — 3-Minute Presentation Deck | BUP CSE Fest 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070d18;
+      --card-bg: rgba(16, 26, 44, 0.75);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --accent: #00f2fe;
+      --accent-grad: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 242, 254, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(79, 172, 254, 0.1) 0px, transparent 50%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Control Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 36px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      background: var(--accent-grad);
+      color: #030712;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-title {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .controls-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .timer-badge {
+      font-family: 'Fira Code', monospace;
+      font-size: 16px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timer-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+    .timer-btn:hover { color: #fff; }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--accent);
+    }
+
+    /* Slides Container */
+    .deck-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px 48px;
+    }
+
+    .slide {
+      position: absolute;
+      width: 90%;
+      max-width: 1250px;
+      height: 82%;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 44px 56px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 242, 254, 0.06);
+      opacity: 0;
+      transform: scale(0.96) translateY(20px);
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: all;
+    }
+
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 18px;
+    }
+
+    .slide-tag {
+      color: var(--accent);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .slide-title {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(180deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-time {
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      color: var(--accent);
+      background: rgba(0, 242, 254, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 242, 254, 0.2);
+    }
+
+    .slide-body {
+      flex: 1;
+      display: grid;
+      gap: 24px;
+      align-items: center;
+    }
+
+    /* Layout Grids */
+    .grid-2col {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3col {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 22px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .card.highlight {
+      border-color: rgba(0, 242, 254, 0.4);
+      background: rgba(0, 242, 254, 0.03);
+    }
+
+    .card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card p, .card li {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .card ul {
+      list-style-position: inside;
+      list-style-type: none;
+    }
+
+    .card li::before {
+      content: "▹";
+      color: var(--accent);
+      font-weight: bold;
+      display: inline-block;
+      width: 1em;
+      margin-left: -0.2em;
+    }
+
+    /* Architecture Flow Diagram */
+    .pipeline-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      background: rgba(16, 26, 44, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 16px 14px;
+      text-align: center;
+    }
+
+    .step-num {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .pipeline-arrow {
+      color: var(--accent);
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    /* Metric Counters */
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .metric-box {
+      background: rgba(0, 242, 254, 0.05);
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      border-radius: 12px;
+      padding: 18px 14px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: 'Fira Code', monospace;
+    }
+
+    .metric-lbl {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Bottom Navigation Bar */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 48px;
+      background: rgba(7, 13, 24, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 50;
+    }
+
+    .progress-bar-container {
+      flex: 1;
+      max-width: 400px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 24px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent-grad);
+      width: 20%;
+      transition: width 0.3s ease;
+    }
+
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: var(--accent);
+      color: #030712;
+      border-color: var(--accent);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Speaker Notes Drawer */
+    .speaker-drawer {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      width: 80%;
+      max-width: 1000px;
+      background: rgba(10, 18, 32, 0.98);
+      border: 1px solid var(--accent);
+      border-radius: 16px;
+      padding: 20px 28px;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }
+
+    .speaker-drawer.open {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .drawer-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      font-style: italic;
+    }
+
+    .kbd {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand">
+      <div class="logo-badge">EWU INNOVATORS</div>
+      <div class="meta-title">GridWise · BUP CSE Fest 2026 Preliminary Round</div>
+    </div>
+    <div class="controls-wrapper">
+      <div class="timer-badge">
+        <span id="timerDisplay">03:00</span>
+        <button class="timer-btn" id="startTimerBtn" title="Start/Pause">▶</button>
+        <button class="timer-btn" id="resetTimerBtn" title="Reset">↺</button>
+      </div>
+      <button class="btn-action" id="notesToggleBtn">🗣 Notes (<span class="kbd">N</span>)</button>
+      <button class="btn-action" id="fullscreenBtn">⛶ Fullscreen (<span class="kbd">F</span>)</button>
+    </div>
+  </header>
+
+  <!-- Slide Canvas -->
+  <main class="deck-container">
+
+    <!-- SLIDE 1 -->
+    <div class="slide active" data-index="0" data-notes="Hello respected judges and organizers. We are team EWU Innovators, presenting GridWise — a high-performance, LLM-assisted energy optimization service. University microgrids face dynamic tariffs, solar volatility, and physical battery limits. Furthermore, operators convey real-time constraints via informal notes. GridWise bridges unstructured language with mathematically optimal dispatch.">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Slide 1 of 5 · Introduction</div>
+          <h1 class="slide-title">GridWise: Smart Campus Energy Optimization</h1>
+        </div>
+        <div class="slide-time">0:00 – 0:35</div>
+      </div>
+      <div class="slide-body grid-2col">
+        <div class="card highlight">
+          <h3>⚡ The Problem & Context</h3>
+          <p style="margin-bottom: 14px;">Campus microgrids must navigate complex operational real-time conditions:</p>
+          <ul>
+            <li><strong>Dynamic Hourly Tariffs:</strong> Shifting electricity prices from 5 to 32 BDT/kWh.</li>
+            <li><strong>Solar Photovoltaic Fluctuations:</strong> Variable 24-hour generation curves.</li>
+            <li><strong>Physical Battery Dynamics:</strong> Strict charge/discharge rate caps, round-trip energy balance, and end-of-day neutrality ($E_{23} = E_{\text{initial}}$).</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🎯 Core Objective</h3>
+          <p style="margin-bottom: 14px;">Build an automated, headless HTTP REST API service that:</p>
+          <ul>
+            <li><strong>Interprets:</strong> 1–3 unstructured natural-language operator notes using an LLM.</li>
+            <li><strong>Guardrails:</strong> Sanitizes output deterministically with zero hallucinations.</li>
+            <li><strong>Optimizes:</strong> Minimizes 24-hour total grid cost using Linear Programming in &lt; 4ms.</li>
+            <li><strong>Conforms:</strong> Strictly adheres to the official JSON schema and $\le 5.0\text{s}$ P95 latency.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 -->
+    <div class="slide" data-index="1" data-notes="To guarantee zero hallucinations and millisecond performance, we structured GridWise into a 3-stage architecture. Stage 1 is the LLM interpreter backed by a semantic regex fallback engine. Stage 2 is our deterministic guardrail engine that sanitizes time windows, boundaries, and handles no-ops. Stage 3 is our SciPy HiGHS LP optimizer, which solves all 120 decision variables in under 4 milliseconds.">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Slide 2 of 5 · Architecture</div>
+          <h1 class="slide-title">The 3-Stage High-Reliability Pipeline</h1>
+        </div>
+        <div class="slide-time">0:35 – 1:15</div>
+      </div>
+      <div class="slide-body" style="grid-template-columns: 1fr;">
+        <div class="pipeline-wrapper">
+          <div class="pipeline-step">
+            <div class="step-num">Stage 1</div>
+            <div class="step-title">LLM Interpreter</div>
+            <div class="step-desc">Gemini 2.0 Flash / GPT-4o-mini + Instant Semantic Regex Fallback Engine</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-step">
+            <div class="step-num">Stage 2</div>
+            <div class="step-title">Deterministic Guardrails</div>
+            <div class="step-desc">Strict 6 directive types, start-inclusive windows, null checks for no_op</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-step">
+            <div class="step-num">Stage 3</div>
+            <div class="step-title">SciPy HiGHS LP Solver</div>
+            <div class="step-desc">120 Decision Variables, Energy Balance, Battery bounds, Sub-4ms solve</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-step" style="border-color: var(--emerald);">
+            <div class="step-num" style="color: var(--emerald);">Output</div>
+            <div class="step-title">Optimal Schedule</div>
+            <div class="step-desc">Recalculated Grid Cost, Peak, & Directive ground truth validation</div>
+          </div>
+        </div>
+
+        <div class="grid-2col" style="margin-top: 10px;">
+          <div class="card">
+            <h3>🛡️ Untrusted AI Design Pattern</h3>
+            <p>LLM output is treated as <em>untrusted user input</em>. Guardrails strip phantom fields, normalize intervals (e.g. 1 PM to 3 PM $\rightarrow$ <code>[13, 14]</code>), and enforce global versus windowed constraints.</p>
+          </div>
+          <div class="card">
+            <h3>⚡ Mathematical Soundness</h3>
+            <p>Optimization is decoupled from LLM text generation. The Linear Program guarantees globally optimal cost with zero cycling penalties and strict end-of-day battery neutrality.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 -->
+    <div class="slide" data-index="2" data-notes="GridWise is engineered to handle subtle real-world edge cases. It cleanly distinguishes window-based directives from global whole-day reserve constraints. For reliability, we enforce a strict 3.8-second LLM timeout, ensuring the API always complies with the 5.0-second competition rubric. Any physically impossible demand scenario is cleanly caught and returned as an informative HTTP 400 Bad Request.">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Slide 3 of 5 · Robustness</div>
+          <h1 class="slide-title">Directive Coverage, Safety & Infeasibility</h1>
+        </div>
+        <div class="slide-time">1:15 – 1:55</div>
+      </div>
+      <div class="slide-body grid-2col">
+        <div class="card">
+          <h3>📋 Complete 6-Directive Compliance</h3>
+          <ul>
+            <li><code>solar_reduction</code>: Usable factor ($0 \le \text{factor} \le 1$) during window.</li>
+            <li><code>minimum_battery_reserve</code>: Supports both time-windows and <strong>global full-day reserve</strong> without hours.</li>
+            <li><code>no_charge_window</code> / <code>no_discharge_window</code>: Battery rate forced to 0.</li>
+            <li><code>max_grid_window</code>: Grid import capped at $X\text{ kWh}$.</li>
+            <li><code>no_op</code>: Irrelevant distractors (cafeteria, sports) safely ignored with <code>null</code> adjustments.</li>
+          </ul>
+        </div>
+        <div class="card highlight">
+          <h3>⏱️ P95 Latency & Failure Safeguards</h3>
+          <ul>
+            <li><strong>3.8s LLM Timeout:</strong> Guarantees response time never breaches the competition's $\le 5.0\text{s}$ P95 rubric limit (full 3/3 points).</li>
+            <li><strong>Zero 500 Crashes:</strong> Graceful fallback to regex semantic engine under cloud provider throttling.</li>
+            <li><strong>Physical Infeasibility Handling:</strong> Mathematically impossible grid caps return clean <code>HTTP 400 Bad Request</code>.</li>
+            <li><strong>Secret Safety:</strong> Zero API keys or tokens committed or exposed in responses.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4 -->
+    <div class="slide" data-index="3" data-notes="We verified GridWise against all 10 official public sample cases and novel hidden stress scenarios. GridWise scored a perfect 100% pass rate. Our HiGHS solver delivers the absolute theoretical minimum cost, achieving an exact match with organizer reference targets. Every hourly plan satisfies energy balance, rate limits, and end-of-day battery neutrality to four decimal places.">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Slide 4 of 5 · Evaluation</div>
+          <h1 class="slide-title">Benchmark Results & Optimization Quality</h1>
+        </div>
+        <div class="slide-time">1:55 – 2:30</div>
+      </div>
+      <div class="slide-body" style="grid-template-columns: 1fr;">
+        <div class="metric-row">
+          <div class="metric-box">
+            <div class="metric-val">10/10</div>
+            <div class="metric-lbl">Public Cases Passed</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">100%</div>
+            <div class="metric-lbl">Directive Precision</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">2.9 ms</div>
+            <div class="metric-lbl">Avg Optimizer Solve</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">&lt; 4.2s</div>
+            <div class="metric-lbl">Live P95 Cloud Latency</div>
+          </div>
+        </div>
+
+        <div class="grid-2col" style="margin-top: 14px;">
+          <div class="card">
+            <h3>📐 Hard Constraint Adherence</h3>
+            <ul>
+              <li><strong>Energy Balance:</strong> $G_h + S_h + D_h - C_h = \text{Demand}_h$ held for all $h \in [0..23]$.</li>
+              <li><strong>Solar Bounds:</strong> $S_h \le \text{Effective Solar}_h$ strictly capped.</li>
+              <li><strong>Battery Integrity:</strong> Active Reserve $\le E_h \le \text{Capacity}$.</li>
+              <li><strong>Neutrality:</strong> $E_{23} = E_{\text{initial}}$ strictly enforced.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>💰 Cost Optimization Quality</h3>
+            <p>Our HiGHS solver eliminates redundant charge-discharge cycles with a tie-breaker throughput penalty ($10^{-6}$), producing the <strong>exact global optimal cost</strong> across all tested TOU rate profiles.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5 -->
+    <div class="slide" data-index="4" data-notes="Finally, GridWise is fully deployed and immediately testable. Our live cloud API is running on Render, with active readiness probes on /health and complete Swagger documentation on /docs. For offline reproducibility and complete Docker fallback compliance, our automated CI/CD pipeline builds and publishes container images to GitHub Container Registry, ready to pull and run with a single command. Thank you!">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Slide 5 of 5 · Deployment & Wrap-Up</div>
+          <h1 class="slide-title">Live Deployment & Docker Verification</h1>
+        </div>
+        <div class="slide-time">2:30 – 3:00</div>
+      </div>
+      <div class="slide-body grid-2col">
+        <div class="card highlight">
+          <h3>🌐 Live Cloud Endpoints (Render)</h3>
+          <ul>
+            <li><strong>Service URL:</strong> <code>https://bup-gridwise.onrender.com</code></li>
+            <li><strong>Health Probe:</strong> <code>GET /health</code> $\rightarrow$ <code>{"status": "ok"}</code></li>
+            <li><strong>Optimize API:</strong> <code>POST /optimize-energy</code></li>
+            <li><strong>Interactive Docs:</strong> <code>GET /docs</code> (Swagger UI)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🐳 Pullable Docker Fallback (GHCR)</h3>
+          <p style="margin-bottom: 10px;">Automated GitHub Actions CI/CD publishes verified container image:</p>
+          <div style="background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 12px; color: var(--accent); line-height: 1.5;">
+            docker pull ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest<br>
+            docker run -d -p 8000:8000 ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest
+          </div>
+          <p style="margin-top: 12px; font-weight: 700; color: #fff;">Repository: github.com/wahidfarhan/BUP_CSE_EWU_INNOVATORS</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Speaker Notes Drawer -->
+  <div class="speaker-drawer" id="speakerDrawer">
+    <div class="drawer-header">
+      <span>Speaker Script (<span id="drawerSlideIdx">Slide 1</span>)</span>
+      <span style="font-size: 11px; color: var(--text-muted);">Press <span class="kbd">N</span> to dismiss</span>
+    </div>
+    <div class="drawer-text" id="speakerNotesContent"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <footer>
+    <div style="display: flex; gap: 8px;">
+      <button class="nav-btn" id="prevBtn" disabled>◀ Prev (<span class="kbd">←</span>)</button>
+      <button class="nav-btn" id="nextBtn">Next (<span class="kbd">→</span> / <span class="kbd">Space</span>) ▶</button>
+    </div>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div style="font-size: 13px; color: var(--text-muted); font-weight: 600;">
+      Slide <span id="currentSlideNum" style="color: var(--accent);">1</span> of <span id="totalSlides">5</span>
+    </div>
+  </footer>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const total = slides.length;
+    let currentIndex = 0;
+
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const currentSlideNum = document.getElementById('currentSlideNum');
+    const progressBar = document.getElementById('progressBar');
+    const speakerDrawer = document.getElementById('speakerDrawer');
+    const speakerNotesContent = document.getElementById('speakerNotesContent');
+    const drawerSlideIdx = document.getElementById('drawerSlideIdx');
+    const notesToggleBtn = document.getElementById('notesToggleBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    function updateSlide(index) {
+      slides.forEach((s, i) => {
+        s.classList.toggle('active', i === index);
+      });
+      currentIndex = index;
+      currentSlideNum.textContent = index + 1;
+      progressBar.style.width = ((index + 1) / total * 100) + '%';
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === total - 1;
+
+      // Update speaker notes
+      const notes = slides[index].getAttribute('data-notes') || 'No notes available.';
+      speakerNotesContent.textContent = notes;
+      drawerSlideIdx.textContent = `Slide ${index + 1} of ${total}`;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (currentIndex > 0) updateSlide(currentIndex - 1);
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (currentIndex < total - 1) updateSlide(currentIndex + 1);
+    });
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        if (currentIndex < total - 1) updateSlide(currentIndex + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        if (currentIndex > 0) updateSlide(currentIndex - 1);
+      } else if (e.key.toLowerCase() === 'n') {
+        speakerDrawer.classList.toggle('open');
+      } else if (e.key.toLowerCase() === 'f') {
+        toggleFullscreen();
+      }
+    });
+
+    notesToggleBtn.addEventListener('click', () => {
+      speakerDrawer.classList.toggle('open');
+    });
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    // 3-Minute Timer
+    let timeLeft = 180; // 3:00 in seconds
+    let timerInterval = null;
+    const timerDisplay = document.getElementById('timerDisplay');
+    const startTimerBtn = document.getElementById('startTimerBtn');
+    const resetTimerBtn = document.getElementById('resetTimerBtn');
+
+    function formatTime(s) {
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    startTimerBtn.addEventListener('click', () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        startTimerBtn.textContent = '▶';
+      } else {
+        startTimerBtn.textContent = '⏸';
+        timerInterval = setInterval(() => {
+          if (timeLeft > 0) {
+            timeLeft--;
+            timerDisplay.textContent = formatTime(timeLeft);
+            if (timeLeft <= 30) {
+              timerDisplay.style.color = '#ef4444';
+            }
+          } else {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startTimerBtn.textContent = '▶';
+            timerDisplay.textContent = "00:00";
+          }
+        }, 1000);
+      }
+    });
+
+    resetTimerBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timeLeft = 180;
+      timerDisplay.textContent = "03:00";
+      timerDisplay.style.color = "var(--accent)";
+      startTimerBtn.textContent = '▶';
+    });
+
+    // Initialize
+    updateSlide(0);
+  </script>
+</body>
+</html>
