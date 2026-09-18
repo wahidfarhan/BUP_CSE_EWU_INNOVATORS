@@ -58,7 +58,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"detail": f"An error occurred while processing the energy schedule: {str(exc)}"}
     )
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     """Friendly root endpoint for browser visits."""
     return {
@@ -70,7 +70,7 @@ async def root():
         }
     }
 
-@app.get("/health", response_model=HealthResponse)
+@app.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health_check():
     """Readiness endpoint for the judging harness."""
     return HealthResponse(status="ok")

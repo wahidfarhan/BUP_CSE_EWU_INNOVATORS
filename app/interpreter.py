@@ -295,7 +295,7 @@ Extract the structured directives for each note following the instructions."""
         }
     }
     try:
-        resp = requests.post(url, json=payload, timeout=2.5)
+        resp = requests.post(url, json=payload, timeout=3.8)
         if resp.status_code == 200:
             data = resp.json()
             cand_text = data["candidates"][0]["content"]["parts"][0]["text"]
