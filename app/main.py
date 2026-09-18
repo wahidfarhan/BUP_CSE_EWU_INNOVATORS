@@ -40,13 +40,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    """Handles mathematical constraint violations or infeasible scenarios."""
+    logger.warning(f"Validation/Optimization ValueError: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": str(exc)}
+    )
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    """Controlled internal error handler to avoid leaking secrets or stack traces."""
-    logger.error(f"Internal server error: {exc}", exc_info=False)
+    """Controlled internal error handler with full logging for diagnosing issues."""
+    logger.error(f"Internal server error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An internal error occurred while processing the energy schedule."}
+        content={"detail": f"An error occurred while processing the energy schedule: {str(exc)}"}
     )
 
 @app.get("/")
