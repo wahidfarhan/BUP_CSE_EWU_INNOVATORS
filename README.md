@@ -24,6 +24,84 @@ curl https://bup-gridwise.onrender.com/health
 
 ---
 
+## ⚡ Quick Evaluation Guide for Judges & Organizers
+
+To evaluate GridWise with zero setup friction, choose any of the 3 ready evaluation methods below:
+
+### Option A: In-Browser Interactive Testing (Zero Setup Friction)
+Judges can test any scenario payload directly from their web browser without installing tools or writing code:
+1. Open the **Interactive Swagger UI**: [https://bup-gridwise.onrender.com/docs](https://bup-gridwise.onrender.com/docs)
+2. Expand `POST /optimize-energy` and click **"Try it out"**.
+3. Paste any test case JSON and click **"Execute"**. The verified JSON response and hourly dispatch schedule will render immediately.
+
+### Option B: 1-Line Terminal cURL Test (Instant Live API Verification)
+Run this complete live test from any terminal (PowerShell, Bash, or Command Prompt):
+
+```bash
+curl -X POST "https://bup-gridwise.onrender.com/optimize-energy" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scenario_id": "JUDGE-SAMPLE-EVAL",
+    "operator_notes": [
+      "Solar maintenance from 10 AM to noon; only half generation usable.",
+      "Keep at least 60 kWh battery reserve throughout the day.",
+      "The cafeteria is serving biryani today."
+    ],
+    "battery": {
+      "capacity_kwh": 200.0,
+      "initial_energy_kwh": 120.0,
+      "minimum_energy_kwh": 30.0,
+      "max_charge_kwh_per_hour": 40.0,
+      "max_discharge_kwh_per_hour": 40.0
+    },
+    "hours": [
+      {"hour": 0, "demand_kwh": 70.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+      {"hour": 1, "demand_kwh": 65.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+      {"hour": 2, "demand_kwh": 60.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
+      {"hour": 3, "demand_kwh": 60.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
+      {"hour": 4, "demand_kwh": 65.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+      {"hour": 5, "demand_kwh": 70.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 7.0},
+      {"hour": 6, "demand_kwh": 80.0, "solar_kwh": 10.0, "tariff_bdt_per_kwh": 8.0},
+      {"hour": 7, "demand_kwh": 95.0, "solar_kwh": 25.0, "tariff_bdt_per_kwh": 10.0},
+      {"hour": 8, "demand_kwh": 110.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 12.0},
+      {"hour": 9, "demand_kwh": 125.0, "solar_kwh": 75.0, "tariff_bdt_per_kwh": 14.0},
+      {"hour": 10, "demand_kwh": 140.0, "solar_kwh": 100.0, "tariff_bdt_per_kwh": 16.0},
+      {"hour": 11, "demand_kwh": 150.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 17.0},
+      {"hour": 12, "demand_kwh": 155.0, "solar_kwh": 135.0, "tariff_bdt_per_kwh": 18.0},
+      {"hour": 13, "demand_kwh": 150.0, "solar_kwh": 125.0, "tariff_bdt_per_kwh": 17.0},
+      {"hour": 14, "demand_kwh": 145.0, "solar_kwh": 105.0, "tariff_bdt_per_kwh": 15.0},
+      {"hour": 15, "demand_kwh": 140.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 16.0},
+      {"hour": 16, "demand_kwh": 150.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 20.0},
+      {"hour": 17, "demand_kwh": 165.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 24.0},
+      {"hour": 18, "demand_kwh": 180.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 28.0},
+      {"hour": 19, "demand_kwh": 190.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 30.0},
+      {"hour": 20, "demand_kwh": 180.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 27.0},
+      {"hour": 21, "demand_kwh": 155.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 20.0},
+      {"hour": 22, "demand_kwh": 120.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 12.0},
+      {"hour": 23, "demand_kwh": 90.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 8.0}
+    ]
+  }'
+```
+
+### Option C: Local 1-Command Automated Harness Verification
+To run the automated validation suite on all 10 official public sample cases locally:
+```bash
+git clone https://github.com/wahidfarhan/BUP_CSE_EWU_INNOVATORS.git
+cd BUP_CSE_EWU_INNOVATORS
+pip install -r requirements.txt
+python test_runner.py
+```
+*Expected Output: `RESULTS: 10/10 CASES PASSED (100%)` in under 50 milliseconds.*
+
+### Option D: Docker Fallback 1-Liner
+If evaluating via containerized fallback:
+```bash
+docker run -d -p 8000:8000 -e PORT=8000 ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest
+curl http://localhost:8000/health
+```
+
+---
+
 ## 1. Architecture Overview
 
 ```
