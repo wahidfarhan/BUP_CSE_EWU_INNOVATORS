@@ -44,6 +44,18 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"detail": "An internal error occurred while processing the energy schedule."}
     )
 
+@app.get("/")
+async def root():
+    """Friendly root endpoint for browser visits."""
+    return {
+        "service": "GridWise Smart Campus Energy Optimizer",
+        "status": "online",
+        "endpoints": {
+            "health": "GET /health",
+            "optimize": "POST /optimize-energy"
+        }
+    }
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Readiness endpoint for the judging harness."""
