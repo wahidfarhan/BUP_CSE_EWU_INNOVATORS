@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 from scipy.optimize import linprog
 from typing import List, Dict, Any, Tuple
 from app.models import HourInput, BatteryInput, DirectiveInterpretation, HourlyPlanEntry, BatteryAction
+
+logger = logging.getLogger(__name__)
 
 def validate_schedule_invariants(
     hourly_plan: List[HourlyPlanEntry],
@@ -165,6 +168,27 @@ def solve_energy_schedule(
                     grid_upper_bound[h] = min(grid_upper_bound[h], cap)
             applied_descriptions.append(f"Grid import capped at {cap} kWh during hours {hours}")
 
+        # Enforce secondary / compound constraints from structured_adjustment
+        if "no_charge_hours" in adj:
+            for h in adj["no_charge_hours"]:
+                if 0 <= h < N:
+                    max_charge[h] = 0.0
+            applied_descriptions.append(f"Battery charging additionally disabled during hours {adj['no_charge_hours']}")
+
+        if "no_discharge_hours" in adj:
+            for h in adj["no_discharge_hours"]:
+                if 0 <= h < N:
+                    max_discharge[h] = 0.0
+            applied_descriptions.append(f"Battery discharging additionally disabled during hours {adj['no_discharge_hours']}")
+
+        if "max_grid_kwh" in adj and dir_type != "max_grid_window":
+            cap = float(adj["max_grid_kwh"])
+            grid_hrs = adj.get("max_grid_hours", hours)
+            for h in grid_hrs:
+                if 0 <= h < N:
+                    grid_upper_bound[h] = min(grid_upper_bound[h], cap)
+            applied_descriptions.append(f"Grid import additionally capped at {cap} kWh during hours {grid_hrs}")
+
     # 2. Setup Linear Program variables:
     # 5 variables per hour h:
     # G[h]: Grid purchase
@@ -266,6 +290,23 @@ def solve_energy_schedule(
     )
 
     if not res.success:
+        # Check if secondary constraints caused infeasibility, and retry without them
+        has_secondary = any(
+            any(k in (d.structured_adjustment or {}) for k in ["no_charge_hours", "no_discharge_hours", "max_grid_kwh"])
+            for d in directives if d.applies and d.directive_type != "max_grid_window"
+        )
+        if has_secondary:
+            logger.warning("Solve failed with compound secondary constraints; retrying with primary directives only.")
+            primary_directives = []
+            for d in directives:
+                d_copy = d.model_copy(deep=True)
+                if d_copy.structured_adjustment:
+                    if d_copy.directive_type != "max_grid_window":
+                        d_copy.structured_adjustment.pop("max_grid_kwh", None)
+                        d_copy.structured_adjustment.pop("max_grid_hours", None)
+                primary_directives.append(d_copy)
+            return solve_energy_schedule(hours_data, battery, primary_directives)
+
         raise ValueError(f"Optimization failed: {res.message}")
 
     x = res.x

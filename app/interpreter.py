@@ -119,152 +119,211 @@ def parse_time_window(text: str) -> List[int]:
 
     return []
 
-def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> List[Dict[str, Any]]:
-    """High-precision fallback parser for operator notes in case LLM is unavailable."""
-    results = []
-    
-    # Common distractors that clearly indicate no_op
+def parse_clause(text: str, battery: BatteryInput) -> Optional[Dict[str, Any]]:
+    """Parses a single clause or sentence to identify a directive."""
+    lower = text.lower().strip()
+    if not lower:
+        return None
+
+    # Distractor check
     distractor_keywords = [
         "cafeteria", "menu", "sports", "registration", "book", "library",
         "seminar", "booking", "club", "notices", "holiday", "event",
         "conference", "catering", "bus", "transport", "football", "cricket", "match"
     ]
+    if any(dk in lower for dk in distractor_keywords):
+        return {
+            "applies": False,
+            "directive_type": "no_op",
+            "structured_adjustment": None,
+            "explanation": "Administrative note; no effect on energy scheduling."
+        }
+
+    hours = parse_time_window(text)
+
+    # 1. Solar reduction
+    if any(w in lower for w in ["solar", "photovoltaic", "pv", "panel", "sun"]):
+        factor = 1.0
+        m_pct = re.search(r'(\d+(?:\.\d+)?)\s*(?:%|percent|per\s*cent)', lower)
+        word_nums = {
+            "ten": 10.0, "twenty": 20.0, "thirty": 30.0, "forty": 40.0,
+            "fifty": 50.0, "sixty": 60.0, "seventy": 70.0, "eighty": 80.0, "ninety": 90.0,
+            "twenty-five": 25.0, "seventy-five": 75.0
+        }
+        val = None
+        if m_pct:
+            val = float(m_pct.group(1))
+        else:
+            for w, wn in word_nums.items():
+                if re.search(rf'\b{w}\s*(?:%|percent|per\s*cent)', lower):
+                    val = wn
+                    break
+
+        if val is not None:
+            if any(rw in lower for rw in ["reduction", "drop by", "decrease by", "reduced by", "cut by"]):
+                factor = max(0.0, min(1.0, 1.0 - (val / 100.0)))
+            else:
+                factor = max(0.0, min(1.0, val / 100.0))
+        elif "half" in lower:
+            factor = 0.5
+        elif "one-fifth" in lower or "1/5" in lower:
+            factor = 0.2
+        elif "one-fourth" in lower or "quarter" in lower or "1/4" in lower:
+            factor = 0.25
+        elif "one-third" in lower:
+            factor = 0.3333
+
+        return {
+            "applies": True,
+            "directive_type": "solar_reduction",
+            "structured_adjustment": {
+                "hours": hours,
+                "factor": round(factor, 4)
+            },
+            "explanation": f"Solar output adjusted to {factor*100:.1f}% of forecast during scheduled window."
+        }
+
+    has_negative = any(w in lower for w in [
+        "not", "no", "disable", "avoid", "stop", "prohibit", "prevent", "protect",
+        "maintenance", "isolated", "offline", "inspect", "check", "testing", "test",
+        "outage", "unavailable", "circuit", "down", "cannot", "can't", "halt", "pause", "do not"
+    ])
+
+    is_discharge_action = any(w in lower for w in [
+        "discharge", "discharging", "supply energy", "provide energy", "output energy",
+        "supply power", "provide power", "feed power", "draw from battery", "drain"
+    ])
+
+    is_charge_action = any(w in lower for w in [
+        "charge", "charging", "charger", "replenish", "put energy into", "put any energy into",
+        "store energy in", "feed energy into", "fill the battery"
+    ])
+
+    # 2. no_discharge_window
+    if is_discharge_action and has_negative:
+        return {
+            "applies": True,
+            "directive_type": "no_discharge_window",
+            "structured_adjustment": {"hours": hours},
+            "explanation": "Battery discharging is prohibited during this maintenance/testing window."
+        }
+
+    # 3. no_charge_window
+    if is_charge_action and has_negative:
+        return {
+            "applies": True,
+            "directive_type": "no_charge_window",
+            "structured_adjustment": {"hours": hours},
+            "explanation": "Battery charging is disabled during this maintenance window."
+        }
+
+    # 4. minimum_battery_reserve
+    if any(w in lower for w in ["reserve", "stored in the battery", "remain in the battery", "keep at least", "buffer", "maintains at least", "maintain at least", "hold at least", "minimum storage"]):
+        min_energy = battery.minimum_energy_kwh
+        m_pct = re.search(r'(\d+(?:\.\d+)?)\s*(?:%|percent|per\s*cent)', lower)
+        m_kwh = re.search(r'(\d+(?:\.\d+)?)\s*kwh', lower)
+        if m_pct and "capacity" in lower:
+            pct = float(m_pct.group(1))
+            min_energy = (pct / 100.0) * battery.capacity_kwh
+        elif m_kwh:
+            min_energy = float(m_kwh.group(1))
+
+        is_global = any(gw in lower for gw in ["throughout the day", "throughout the operating day", "throughout today", "throughout the entire day", "all day", "entire day", "operating day", "globally"]) or not hours
+        adj_struct: Dict[str, Any] = {"minimum_energy_kwh": round(min_energy, 2)}
+        if not is_global and hours and len(hours) < 24:
+            adj_struct["hours"] = hours
+
+        min_str = f"{int(min_energy)}" if min_energy.is_integer() else f"{min_energy}"
+        scope_str = "throughout the operating day" if is_global else f"during hours {hours}"
+        return {
+            "applies": True,
+            "directive_type": "minimum_battery_reserve",
+            "structured_adjustment": adj_struct,
+            "explanation": f"The battery must maintain at least {min_str} kWh of stored energy {scope_str}."
+        }
+
+    # 5. max_grid_window
+    if any(w in lower for w in ["grid import", "grid intake", "feeder", "transformer limit", "substation", "grid limit", "max grid", "grid imports", "import from grid"]):
+        m_kwh = re.search(r'(\d+(?:\.\d+)?)\s*kwh', lower)
+        if not m_kwh and not hours:
+            return None  # Pure descriptive context like "while the substation is constrained"
+        max_grid = float(m_kwh.group(1)) if m_kwh else 1000.0
+
+        return {
+            "applies": True,
+            "directive_type": "max_grid_window",
+            "structured_adjustment": {
+                "hours": hours,
+                "max_grid_kwh": round(max_grid, 2)
+            },
+            "explanation": f"Grid import constrained to a maximum of {max_grid} kWh."
+        }
+
+    return None
+
+def deterministic_semantic_parser(notes: List[str], battery: BatteryInput) -> List[Dict[str, Any]]:
+    """High-precision fallback parser for operator notes in case LLM is unavailable."""
+    results = []
 
     for idx, note in enumerate(notes):
-        lower = note.lower()
+        # 1. Check if the entire note matches a single coherent directive
+        d_whole = parse_clause(note, battery)
         
-        # Check if it's a distractor
-        if any(dk in lower for dk in distractor_keywords):
-            results.append({
-                "note_index": idx,
+        # 2. Check multi-clause / compound sentences (split on sentences or ', and ')
+        parts = [p.strip() for p in re.split(r'(?:\.\s+|;\s*|,\s*and\s+)', note) if p.strip()]
+        clause_directives = []
+        for p in parts:
+            d_p = parse_clause(p, battery)
+            if d_p and d_p.get("applies"):
+                clause_directives.append(d_p)
+
+        # Solar notes often have hours in first part and factor in second part
+        if d_whole and d_whole.get("directive_type") == "solar_reduction":
+            chosen = d_whole
+        elif len(clause_directives) == 1:
+            chosen = clause_directives[0]
+        elif len(clause_directives) > 1:
+            # Compound note: pick primary directive and attach secondary constraints to structured_adjustment
+            # Prioritize minimum_battery_reserve or no_discharge/no_charge as primary
+            primary = clause_directives[0]
+            secondary = clause_directives[1]
+            
+            # If one is reserve, make reserve primary so its global/window scope is respected
+            if secondary.get("directive_type") == "minimum_battery_reserve":
+                primary, secondary = secondary, primary
+
+            chosen = {
+                "applies": True,
+                "directive_type": primary["directive_type"],
+                "structured_adjustment": {**primary["structured_adjustment"]},
+                "explanation": primary["explanation"]
+            }
+
+            # Embed secondary constraints for the optimizer
+            sec_type = secondary["directive_type"]
+            sec_adj = secondary["structured_adjustment"] or {}
+            if sec_type == "no_charge_window":
+                chosen["structured_adjustment"]["no_charge_hours"] = sec_adj.get("hours", [])
+                chosen["explanation"] += f" Additionally, charging prohibited during {sec_adj.get('hours', [])}."
+            elif sec_type == "no_discharge_window":
+                chosen["structured_adjustment"]["no_discharge_hours"] = sec_adj.get("hours", [])
+                chosen["explanation"] += f" Additionally, discharging prohibited during {sec_adj.get('hours', [])}."
+            elif sec_type == "max_grid_window":
+                chosen["structured_adjustment"]["max_grid_kwh"] = sec_adj.get("max_grid_kwh", 1000.0)
+                chosen["structured_adjustment"]["max_grid_hours"] = sec_adj.get("hours", [])
+                chosen["explanation"] += f" Additionally, grid imports capped at {sec_adj.get('max_grid_kwh')} kWh during {sec_adj.get('hours', [])}."
+        elif d_whole:
+            chosen = d_whole
+        else:
+            chosen = {
                 "applies": False,
                 "directive_type": "no_op",
                 "structured_adjustment": None,
                 "explanation": "Administrative note; no effect on energy scheduling."
-            })
-            continue
+            }
 
-        hours = parse_time_window(note)
-
-        # 1. Check solar reduction
-        if any(w in lower for w in ["solar", "photovoltaic", "pv", "panel", "sun"]):
-            factor = 1.0
-            # Check percentages
-            m_pct = re.search(r'(\d+(?:\.\d+)?)\s*%', lower)
-            if m_pct:
-                val = float(m_pct.group(1))
-                if "reduction" in lower or "drop by" in lower or "decrease by" in lower:
-                    factor = max(0.0, min(1.0, 1.0 - (val / 100.0)))
-                else:
-                    factor = max(0.0, min(1.0, val / 100.0))
-            elif "half" in lower:
-                factor = 0.5
-            elif "one-fifth" in lower or "1/5" in lower:
-                factor = 0.2
-            elif "one-fourth" in lower or "quarter" in lower or "1/4" in lower:
-                factor = 0.25
-            elif "one-third" in lower:
-                factor = 0.3333
-
-            results.append({
-                "note_index": idx,
-                "applies": True,
-                "directive_type": "solar_reduction",
-                "structured_adjustment": {
-                    "hours": hours,
-                    "factor": round(factor, 4)
-                },
-                "explanation": f"Solar output adjusted to {factor*100:.1f}% of forecast during scheduled window."
-            })
-            continue
-
-        # Keywords indicating battery discharge/supply action
-        is_discharge_action = any(w in lower for w in [
-            "discharge", "discharging", "supply energy", "provide energy", "output energy",
-            "supply power", "provide power", "feed power", "draw from battery", "drain"
-        ])
-        
-        # Keywords indicating restriction/inactivity
-        has_negative = any(w in lower for w in [
-            "not", "no", "disable", "avoid", "stop", "prohibit", "prevent", "protect",
-            "maintenance", "isolated", "offline", "inspect", "check", "testing", "test",
-            "outage", "unavailable", "circuit", "down", "cannot", "can't", "halt", "pause"
-        ])
-
-        # 2. Check no_discharge_window
-        if is_discharge_action and has_negative:
-            results.append({
-                "note_index": idx,
-                "applies": True,
-                "directive_type": "no_discharge_window",
-                "structured_adjustment": {"hours": hours},
-                "explanation": "Battery discharging is prohibited during this maintenance/testing window."
-            })
-            continue
-
-        # 3. Check no_charge_window
-        if not is_discharge_action and any(w in lower for w in ["charge", "charging", "charger", "replenish"]) and has_negative:
-            results.append({
-                "note_index": idx,
-                "applies": True,
-                "directive_type": "no_charge_window",
-                "structured_adjustment": {"hours": hours},
-                "explanation": "Battery charging is disabled during this maintenance window."
-            })
-            continue
-
-        # 4. Check minimum_battery_reserve
-        if any(w in lower for w in ["reserve", "stored in the battery", "remain in the battery", "keep at least", "buffer", "maintains at least", "maintain at least", "hold at least", "minimum storage"]):
-            min_energy = battery.minimum_energy_kwh
-            m_pct = re.search(r'(\d+(?:\.\d+)?)\s*%', lower)
-            m_kwh = re.search(r'(\d+(?:\.\d+)?)\s*kwh', lower)
-            if m_pct and "capacity" in lower:
-                pct = float(m_pct.group(1))
-                min_energy = (pct / 100.0) * battery.capacity_kwh
-            elif m_kwh:
-                min_energy = float(m_kwh.group(1))
-
-            adj_struct: Dict[str, Any] = {"minimum_energy_kwh": round(min_energy, 2)}
-            if hours and len(hours) < 24:
-                adj_struct["hours"] = hours
-
-            min_str = f"{int(min_energy)}" if min_energy.is_integer() else f"{min_energy}"
-            results.append({
-                "note_index": idx,
-                "applies": True,
-                "directive_type": "minimum_battery_reserve",
-                "structured_adjustment": adj_struct,
-                "explanation": f"The battery must maintain at least {min_str} kWh of stored energy."
-            })
-            continue
-
-        # 5. Check max_grid_window
-        if any(w in lower for w in ["grid import", "grid intake", "feeder", "transformer limit", "substation", "grid limit", "max grid"]):
-            m_kwh = re.search(r'(\d+(?:\.\d+)?)\s*kwh', lower)
-            max_grid = 1000.0
-            if m_kwh:
-                max_grid = float(m_kwh.group(1))
-
-            results.append({
-                "note_index": idx,
-                "applies": True,
-                "directive_type": "max_grid_window",
-                "structured_adjustment": {
-                    "hours": hours,
-                    "max_grid_kwh": round(max_grid, 2)
-                },
-                "explanation": f"Grid import constrained to a maximum of {max_grid} kWh."
-            })
-            continue
-
-        # Default fallback: no_op
-        results.append({
-            "note_index": idx,
-            "applies": False,
-            "directive_type": "no_op",
-            "structured_adjustment": None,
-            "explanation": "No operational energy constraint specified."
-        })
+        chosen["note_index"] = idx
+        results.append(chosen)
 
     return results
 

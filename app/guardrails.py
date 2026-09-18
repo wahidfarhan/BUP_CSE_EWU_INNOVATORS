@@ -136,6 +136,25 @@ def validate_and_guardrail_directives(
         elif raw_type in ("no_charge_window", "no_discharge_window"):
             pass  # Only "hours" is required
 
+        # Preserve validated secondary constraints for the optimizer if present
+        if "no_charge_hours" in raw_adj:
+            nc_hours = sanitize_hours(raw_adj.get("no_charge_hours"))
+            if nc_hours:
+                adj["no_charge_hours"] = nc_hours
+        if "no_discharge_hours" in raw_adj:
+            nd_hours = sanitize_hours(raw_adj.get("no_discharge_hours"))
+            if nd_hours:
+                adj["no_discharge_hours"] = nd_hours
+        if "max_grid_kwh" in raw_adj and raw_type != "max_grid_window":
+            try:
+                mg_val = float(raw_adj["max_grid_kwh"])
+                if not (math.isnan(mg_val) or math.isinf(mg_val) or mg_val < 0):
+                    adj["max_grid_kwh"] = round(mg_val, 2)
+                    if "max_grid_hours" in raw_adj:
+                        adj["max_grid_hours"] = sanitize_hours(raw_adj["max_grid_hours"])
+            except (ValueError, TypeError):
+                pass
+
         cleaned.append(DirectiveInterpretation(
             note_index=idx,
             applies=True,
