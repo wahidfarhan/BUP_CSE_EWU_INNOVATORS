@@ -11,3 +11,4 @@ env/
 *.log
 inspect_cases.py
 *.exe
+*.pdf
