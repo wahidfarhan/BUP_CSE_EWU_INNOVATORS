@@ -168,7 +168,14 @@ def solve_energy_schedule(
                     grid_upper_bound[h] = min(grid_upper_bound[h], cap)
             applied_descriptions.append(f"Grid import capped at {cap} kWh during hours {hours}")
 
-        # Enforce secondary / compound constraints from structured_adjustment
+        if "minimum_energy_kwh" in adj and dir_type != "minimum_battery_reserve":
+            req_reserve = float(adj["minimum_energy_kwh"])
+            res_hours = adj.get("reserve_hours", list(range(N)))
+            for h in res_hours:
+                if 0 <= h < N:
+                    min_reserve[h] = max(min_reserve[h], req_reserve)
+            applied_descriptions.append(f"Battery reserve additionally held at >={req_reserve} kWh")
+
         if "no_charge_hours" in adj:
             for h in adj["no_charge_hours"]:
                 if 0 <= h < N:

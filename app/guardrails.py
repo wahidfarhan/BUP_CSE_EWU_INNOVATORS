@@ -11,6 +11,24 @@ ALLOWED_DIRECTIVES = {
     "no_op"
 }
 
+def check_directive_alignment(raw_type: str, text: str) -> bool:
+    """Returns False if raw_type has zero semantic relevance to text, indicating misassigned note."""
+    lower = text.lower()
+    if raw_type == "solar_reduction":
+        return any(w in lower for w in ["solar", "photovoltaic", "pv", "generation", "sun", "panel", "array"])
+    if raw_type == "no_charge_window":
+        return any(w in lower for w in ["charge", "charging", "replenish", "put energy", "store energy", "inflow", "fill", "put any energy"])
+    if raw_type == "no_discharge_window":
+        return any(w in lower for w in ["discharge", "discharging", "outflow", "drain", "draw from", "supply energy", "provide energy", "feed power"])
+    if raw_type == "max_grid_window":
+        return any(w in lower for w in ["grid", "import", "feeder", "transformer", "substation", "utility", "intake"])
+    if raw_type == "minimum_battery_reserve":
+        return any(w in lower for w in ["reserve", "stored", "at least", "minimum", "buffer", "maintain", "hold", "soc"])
+    if raw_type == "no_op":
+        has_operational = any(w in lower for w in ["solar", "photovoltaic", "battery", "charge", "discharge", "grid", "reserve", "feeder", "transformer"])
+        return not has_operational
+    return True
+
 def sanitize_hours(raw_hours: Any) -> List[int]:
     """Ensures hours are unique integers in range 0..23, sorted ascending."""
     if not isinstance(raw_hours, list):
@@ -28,12 +46,15 @@ def sanitize_hours(raw_hours: Any) -> List[int]:
 def validate_and_guardrail_directives(
     raw_directives: List[Dict[str, Any]],
     num_notes: int,
-    battery: BatteryInput
+    battery: BatteryInput,
+    operator_notes: Optional[List[str]] = None
 ) -> List[DirectiveInterpretation]:
     """
     Validates and normalizes directive interpretations according to Section 08 Guardrails.
     Returns a clean, strictly compliant list of DirectiveInterpretation objects.
     """
+    from app.interpreter import deterministic_semantic_parser
+
     cleaned: List[DirectiveInterpretation] = []
     
     # Map by note_index if available
@@ -48,6 +69,35 @@ def validate_and_guardrail_directives(
         item = dir_by_index.get(idx)
         if not item and idx < len(raw_directives) and isinstance(raw_directives[idx], dict):
             item = raw_directives[idx]
+
+        # Verify semantic alignment with the actual note text if available
+        if operator_notes and idx < len(operator_notes):
+            note_text = operator_notes[idx]
+            current_type = str(item.get("directive_type", "")).strip().lower() if item else ""
+            if not item or not check_directive_alignment(current_type, note_text):
+                # Hallucination or note misalignment detected; re-parse directly from note text
+                fallback_parsed = deterministic_semantic_parser([note_text], battery)[0]
+                fallback_parsed["note_index"] = idx
+                item = fallback_parsed
+            else:
+                # Check for uncaptured compound constraints in the note text
+                lower_note = note_text.lower()
+                adj = item.get("structured_adjustment") or {}
+                if "stored in the battery" in lower_note or "keep at least" in lower_note or "reserve" in lower_note:
+                    if "minimum_energy_kwh" not in adj and current_type != "minimum_battery_reserve":
+                        sec_parsed = deterministic_semantic_parser([note_text], battery)[0]
+                        sec_adj = sec_parsed.get("structured_adjustment") or {}
+                        if "minimum_energy_kwh" in sec_adj:
+                            adj["minimum_energy_kwh"] = sec_adj["minimum_energy_kwh"]
+                            item["structured_adjustment"] = adj
+                if any(w in lower_note for w in ["grid import", "grid imports", "max grid", "transformer limit"]):
+                    if "max_grid_kwh" not in adj and current_type != "max_grid_window":
+                        sec_parsed = deterministic_semantic_parser([note_text], battery)[0]
+                        sec_adj = sec_parsed.get("structured_adjustment") or {}
+                        if "max_grid_kwh" in sec_adj:
+                            adj["max_grid_kwh"] = sec_adj["max_grid_kwh"]
+                            adj["max_grid_hours"] = sec_adj.get("hours") or sec_adj.get("max_grid_hours")
+                            item["structured_adjustment"] = adj
         
         if not item:
             cleaned.append(DirectiveInterpretation(

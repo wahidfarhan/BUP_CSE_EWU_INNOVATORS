@@ -94,7 +94,8 @@ async def optimize_energy(req: OptimizeEnergyRequest):
     guarded_directives = validate_and_guardrail_directives(
         raw_directives=raw_directives,
         num_notes=num_notes,
-        battery=req.battery
+        battery=req.battery,
+        operator_notes=req.operator_notes
     )
 
     # 3. Math Optimization

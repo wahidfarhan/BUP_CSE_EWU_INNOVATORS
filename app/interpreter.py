@@ -44,8 +44,14 @@ CRITICAL TIME RULES:
 - "2 AM until 5 AM" -> hours [2, 3, 4]
 - "hours" MUST be unique integers in ascending order.
 
-OUTPUT JSON FORMAT:
-Return a JSON array containing exactly one object per note in the exact order of the notes:
+OUTPUT JSON FORMAT AND STRICT MAPPING:
+- You receive N operator notes.
+- Your output JSON array MUST contain EXACTLY N objects (one per input note, in exact 0..N-1 index order).
+- Element i (with "note_index": i) MUST correspond EXCLUSIVELY to input Note i.
+- NEVER split one note into multiple output objects!
+- If an operator note contains multiple operational conditions (compound note), select the PRIMARY directive_type for that note, and include any secondary constraints in structured_adjustment (e.g. "no_charge_hours", "no_discharge_hours", "minimum_energy_kwh", "max_grid_kwh").
+- NEVER assign instructions from Note 1 to Note 2!
+
 [
   {
     "note_index": 0,
@@ -332,14 +338,15 @@ def call_gemini_api(notes: List[str], battery: BatteryInput, api_key: str) -> Op
     model_name = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     
+    formatted_notes = "\n".join([f'Note {i}: "{n}"' for i, n in enumerate(notes)])
     prompt_content = f"""Battery Specs:
 - Capacity: {battery.capacity_kwh} kWh
 - Base Minimum Reserve: {battery.minimum_energy_kwh} kWh
 
-Operator Notes to interpret:
-{json.dumps(notes, indent=2)}
+INPUT OPERATOR NOTES ({len(notes)} notes total):
+{formatted_notes}
 
-Extract the structured directives for each note following the instructions."""
+Extract exactly {len(notes)} structured directive objects (one per note, in note_index order 0 to {len(notes)-1})."""
 
     payload = {
         "contents": [
@@ -372,12 +379,15 @@ Extract the structured directives for each note following the instructions."""
 def call_openai_api(notes: List[str], battery: BatteryInput, api_key: str) -> Optional[List[Dict[str, Any]]]:
     """Invokes OpenAI API via REST with structured JSON output."""
     url = "https://api.openai.com/v1/chat/completions"
+    formatted_notes = "\n".join([f'Note {i}: "{n}"' for i, n in enumerate(notes)])
     prompt_content = f"""Battery Specs:
 - Capacity: {battery.capacity_kwh} kWh
 - Base Minimum Reserve: {battery.minimum_energy_kwh} kWh
 
-Operator Notes to interpret:
-{json.dumps(notes, indent=2)}"""
+INPUT OPERATOR NOTES ({len(notes)} notes total):
+{formatted_notes}
+
+Extract exactly {len(notes)} structured directive objects (one per note, in note_index order 0 to {len(notes)-1})."""
 
     payload = {
         "model": "gpt-4o-mini",
