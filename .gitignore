@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.env.*
+venv/
+env/
+.idea/
+.vscode/
+*.log
+inspect_cases.py
