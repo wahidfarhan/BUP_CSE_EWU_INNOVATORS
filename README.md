@@ -18,7 +18,7 @@ GridWise is an enterprise-grade, high-performance energy scheduling HTTP API ser
                       ┌────────────────────────────────────────┐
                       │           LLM Interpreter              │
                       │  (Gemini 2.0 Flash / GPT-4o-mini       │
-                      │   + Semantic Fallback Regex Engine)    │
+                      │   + Deterministic Semantic Fallback)   │
                       └───────────────────┬────────────────────┘
                                           │
                                           ▼
@@ -42,26 +42,33 @@ GridWise is an enterprise-grade, high-performance energy scheduling HTTP API ser
                                           │
                                           ▼
                       ┌────────────────────────────────────────┐
-                      │          Replay & Final Response       │
+                      │    Post-Optimization Validator & Final │
+                      │  - Deterministic invariant audit       │
                       │  - Recalculated total cost & peak grid │
                       │  - Strict JSON schema matching         │
                       └────────────────────────────────────────┘
 ```
 
+### LLM Role
+The LLM is used directly in the operator-note interpretation path. For every operator note, the model produces a structured directive interpretation containing relevance, directive type, affected hours, and required numeric parameters. The resulting model output is treated as untrusted data and is passed through deterministic guardrails before any directive reaches the optimizer.
+
+**Pipeline Flow:**
+`Operator Note` ➔ `LLM Structured Interpretation` ➔ `Deterministic Validation / Guardrails` ➔ `Validated Directive` ➔ `Optimization Constraints` ➔ `Deterministic Schedule Invariant Validator` ➔ `24-hour Schedule`
+
 ### Key Components:
 1. **LLM Interpreter (`app/interpreter.py`)**:
    - Parses unstructured operator notes into one of 6 supported directive types (`solar_reduction`, `minimum_battery_reserve`, `no_charge_window`, `no_discharge_window`, `max_grid_window`, `no_op`).
    - Normalizes time intervals as start-inclusive, end-exclusive (e.g., 1 PM to 3 PM $\rightarrow$ `[13, 14]`).
-   - Built-in **Deterministic Semantic Fallback Engine** ensures 100% reliability and zero 500 crashes even during network/provider disruptions.
+   - Provider failures are handled through a deterministic fallback parser to keep the service operational when an external model provider is temporarily unavailable. Under normal operation, the LLM directly produces the structured operator-note interpretation used by the optimizer.
 2. **Deterministic Guardrails (`app/guardrails.py`)**:
    - Treats LLM output as untrusted until verified.
    - Enforces unique sorted integers for `hours`, bounds on factors ($0 \le \text{factor} \le 1$), and non-negative reserve limits.
    - Guarantees `applies = False` and `structured_adjustment = null` for all `no_op` notes.
 3. **Linear Programming Optimizer (`app/optimizer.py`)**:
-   - Uses SciPy's modern `highs` solver.
-   - 120 decision variables (Grid, Solar used, Charge, Discharge, Energy state across 24 hours).
-   - Solves the global minimum cost in under **4 milliseconds**.
+   - Uses SciPy's modern `highs` solver over 120 decision variables (Grid, Solar used, Charge, Discharge, Energy state across 24 hours).
+   - The HiGHS optimization stage typically solves the LP in a few milliseconds; end-to-end latency depends primarily on LLM/provider response time.
    - Enforces hour-by-hour energy balance, battery capacity, rate limits, and end-of-day neutrality ($E_{23} = E_{\text{initial}}$).
+   - Features a deterministic post-optimization invariant validator checking energy balance ($\le 0.01$ tolerance), solar limits, and state transitions before returning.
 
 ---
 
@@ -99,7 +106,10 @@ pip install -r requirements.txt
 ```
 
 ### Step 3: Run the local test suite
-Verify all 10 public sample cases immediately:
+
+#### Public Sample Cases
+The repository includes the organizer-provided public sample cases for automated evaluation.
+Run:
 ```bash
 python test_runner.py
 ```
@@ -107,11 +117,10 @@ Expected output:
 ```text
 ======================================================================
 RESULTS: 10/10 CASES PASSED (100%)
-Average latency per request: ~3.5ms
 ======================================================================
 ```
 
-Run the API integration tests:
+Run the API integration and replay tests:
 ```bash
 python test_api.py
 ```
@@ -186,6 +195,8 @@ curl -X POST http://localhost:8000/optimize-energy \
 
 ## 5. Docker Fallback & Deployment
 
+The container binds to `0.0.0.0:8000` and exposes port `8000`.
+
 ### Option A: Pull & Run Pre-built Docker Image (GHCR):
 ```bash
 docker pull ghcr.io/wahidfarhan/bup_cse_ewu_innovators:latest
@@ -202,11 +213,16 @@ docker run -d --name gridwise -p 8000:8000 gridwise-service:latest
 ```bash
 curl http://localhost:8000/health
 ```
+Expected output:
+```json
+{"status":"ok"}
+```
 
 ---
 
 ## 6. Known Limitations & Edge Cases Handled
 
 1. **Simultaneous Charge/Discharge**: Handled by net flow canceling and zero-threshold deadbands in the optimizer to ensure battery state strictly complies with valid action enums (`charge`, `discharge`, `idle`).
-2. **Provider Downtime / Rate Limits**: If external LLM calls encounter rate limits or timeouts, the built-in deterministic parser automatically activates, maintaining 100% uptime with sub-10ms response time.
+2. **Provider Downtime / Rate Limits**: If external LLM calls encounter rate limits or timeouts, the built-in deterministic parser automatically activates as a resilience fallback to ensure continuous service availability.
 3. **End-of-Day Neutrality**: Enforced both in the LP equality constraints ($E_{23} = E_{\text{initial}}$) and verified post-optimization.
+4. **Post-Optimization Schedule Verification**: All returned plans are checked by a deterministic invariant validator ensuring energy balance and battery limits hold within $\le 0.01$ tolerance.
