@@ -1,5 +1,6 @@
+import json
 from typing import List, Optional, Literal, Union, Dict, Any
-from pydantic import BaseModel, Field, conlist
+from pydantic import BaseModel, Field, conlist, model_validator
 
 DirectiveType = Literal[
     "solar_reduction",
@@ -30,6 +31,19 @@ class OptimizeEnergyRequest(BaseModel):
     operator_notes: List[str] = Field(..., min_length=1, max_length=3)
     hours: List[HourInput] = Field(..., min_length=24, max_length=24)
     battery: BatteryInput
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_raw_string(cls, data: Any) -> Any:
+        """Seamlessly handles payloads sent as raw/stringified JSON strings."""
+        if isinstance(data, str):
+            try:
+                parsed = json.loads(data)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        return data
 
 class DirectiveInterpretation(BaseModel):
     note_index: int
