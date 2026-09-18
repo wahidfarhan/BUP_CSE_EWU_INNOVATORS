@@ -34,9 +34,15 @@ Judges can test any scenario payload directly from their web browser without ins
 2. Expand `POST /optimize-energy` and click **"Try it out"**.
 3. Paste any test case JSON and click **"Execute"**. The verified JSON response and hourly dispatch schedule will render immediately.
 
-### Option B: 1-Line Terminal cURL Test (Instant Live API Verification)
-Run this complete live test from any terminal (PowerShell, Bash, or Command Prompt):
+### Option B: Terminal cURL & PowerShell Test (Instant Live API Verification)
 
+#### 1. Universal Cross-Platform 1-Liner (Windows, Linux, macOS):
+Using the bundled `sample_request.json` directly from the repository root avoids multi-line quote escaping issues across all operating systems:
+```bash
+curl -X POST "https://bup-gridwise.onrender.com/optimize-energy" -H "Content-Type: application/json" -d "@sample_request.json"
+```
+
+#### 2. Linux / macOS / Git Bash (Inline Multi-line):
 ```bash
 curl -X POST "https://bup-gridwise.onrender.com/optimize-energy" \
   -H "Content-Type: application/json" \
@@ -81,6 +87,11 @@ curl -X POST "https://bup-gridwise.onrender.com/optimize-energy" \
       {"hour": 23, "demand_kwh": 90.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 8.0}
     ]
   }'
+```
+
+#### 3. Windows PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://bup-gridwise.onrender.com/optimize-energy" -Method POST -ContentType "application/json" -InFile "sample_request.json"
 ```
 
 ### Option C: Local 1-Command Automated Harness Verification
