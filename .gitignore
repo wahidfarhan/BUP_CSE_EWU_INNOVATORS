@@ -9,3 +9,4 @@ env/
 .vscode/
 *.log
 inspect_cases.py
+*.exe
